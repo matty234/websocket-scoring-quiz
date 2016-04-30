@@ -1,0 +1,19 @@
+{
+  "name": "websocket-quiz-app",
+  "version": "0.0.0",
+  "description": "A quiz scoring application using plain websockets.",
+  "main": "index.js",
+  "dependencies": {
+    "express": "^4.13.3",
+    "ws": "^1.0.1"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"I didn't really have enough time to make tests for this, it probably works OK.\" && exit 0",
+    "start": "node index.js"
+
+  },
+
+  "author": "",
+  "license": "ISC"
+}

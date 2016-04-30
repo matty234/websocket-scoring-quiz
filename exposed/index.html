@@ -1,0 +1,316 @@
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta name="generator" content=
+  "HTML Tidy for Linux/x86 (vers 25 March 2009), see www.w3.org" />
+  <meta charset="utf-8" />
+  <title>Rowing Quiz</title>
+  <link href='./css/bootstrap.min.css' rel='stylesheet' type='text/css' />
+  <style type="text/css">
+/*<![CDATA[*/
+  body {
+	-webkit-user-select: none; /* webkit (safari, chrome) browsers */
+	-moz-user-select: none; /* mozilla browsers */
+    	-khtml-user-select: none; /* webkit (konqueror) browsers */
+  	-ms-user-select: none; /* IE10+ */
+  }
+  .btn{
+  	height: 40px;
+  }
+  img {
+        height: 30px;
+        height: 30px;
+
+        position: relative;
+  }
+  .boat{
+          left: 30px;
+  }
+  .progress{
+      min-width: 900px;
+      height: 40px;
+        transition: width .6s ease;
+    transition-property: width;
+    transition-duration: 0.6s;
+    transition-timing-function: ease;
+    transition-delay: initial;
+
+  }
+ 
+  .progress-bar{
+    text-align: right;
+  }
+  .currentDistance {
+  font-size: xx-large;
+  }
+  h1{
+    text-align: center;
+  }
+  .name {
+  padding-right: 10px;
+  font-weight: bold;
+  }
+        
+        [contenteditable="true"].single-line {
+        white-space: nowrap;
+        width:200px;
+        overflow: hidden;
+    } 
+    [contenteditable="true"].single-line br {
+        display:none;
+
+    }
+    [contenteditable="true"].single-line * {
+        display:inline;
+        white-space:nowrap;
+    }
+    .joker:disabled{
+    	    background-color: #d2322d;
+    		border-color: #ac2925;
+    }
+    .scoreCell {
+	padding-left: 10px;
+	min-width: 90px;
+    }
+    .winCount {
+
+     color: #f70;
+	}
+   .stats {
+	padding-top: 10px;
+	}
+  /*]]>*/
+  </style>
+  <script type="text/javascript" src="jquery.js">
+</script>
+  <script type="text/javascript" src="js/bootstrap.min.js">
+</script>
+  <script language="javascript" type="text/javascript">
+//<![CDATA[
+
+	
+  var maxscore = 20;
+
+  var wsUri = location.origin.replace(/^http/, 'ws');
+  var output;
+
+  function init()
+  {
+    output = document.getElementById("output");
+    testWebSocket();
+    if(window.location.hash) {
+
+        showConfig();
+    }
+	
+  }
+
+  function testWebSocket()
+  {
+    websocket = new WebSocket(wsUri);
+    websocket.onopen = function(evt) { WSInit(evt) };
+    websocket.onclose = function(evt) { WSEvent(evt) };
+    websocket.onmessage = function(evt) { onMessage(evt) };
+    websocket.onerror = showErrorState;
+  }
+
+  function WSEvent(evt)
+  {
+        console.log("event: "+evt+"@ "+new Date().getTime());        
+
+  }
+  function WSInit(evt){
+        console.log("Init: "+evt+"@ "+new Date().getTime());
+	setInterval(ping, 5000);
+  }
+
+
+  function onMessage(evt)
+  {
+        hideErrorState();
+        var recJSON = JSON.parse(evt.data);
+        var boatStatus = recJSON.boats;
+        maxscore = recJSON.racelength;
+        $(".mscore").html(maxscore);
+        $("#roundText").html(recJSON.currentRound);
+        $( "#output" ).html("");
+        $("#loadingText").hide();
+	$(".numberOfRounds").html(recJSON.numberOfRounds);
+        if(recJSON.winner==-1){
+		$("#winnermessage").hide();
+        } else {
+		showWinner(boatStatus[recJSON.winner]);
+        }
+        for(index = 0; index < boatStatus.length; index++) {
+		var boatCell = makeCell(index,boatStatus[index]);
+		$( "#output" ).append(boatCell);
+        }
+    //writeToScreen('<span style="color: blue;">' + evt.data+'<\/span>');    
+
+  }
+
+  function showWinner(boat){
+        $("#winnermessage").show();
+        $("#winner").html(boat.boatName);
+  }
+
+  function makeCell(id,boat){ //boatStatus[index].boatName, boatStatus[index].distance, boatStatus[index].finished, boatStatus[index].jokerPlayed
+        var percent = (boat.distance/maxscore)*100;
+        var extra = "";
+        var joker = "";
+	var stars = "";
+        if(boat.finished){
+		extra += "progress-bar-success";
+        } 
+        if(boat.jokerPlayed){
+		joker += "disabled";
+        } 
+	for (i = 0; i < boat.winCount; i++) { 
+    		stars += "<span class=\"winCount\">★</span>";
+	}
+        var cellItem = "<tr> <td><span contentEditable class=\"name\" onfocusout=\"sendUpdate(2,$(this).data('id'),$(this).text())\" data-id=\""+id+"\" style=\"\">"+boat.boatName+"<\/span><div>"+stars+"</div><\/td><td>   <div class=\"progress\" onClick=\"sendUpdate(1,"+id+")\"><div class=\"progress-bar "+extra+" \" role=\"progressbar\"  aria-valuenow=\""+boat.distance+"\" aria-valuemin=\"0\" aria-valuemax=\""+maxscore+"\" style=\"width:"+percent+"%\"><span style=\"line-height: 39px;\"><img src=\"boat.svg\" class=\"boat\"><\/span><\/div>  <\/div><\/td><td class=\"jokerButtonCell\"> <button class=\"btn btn-success joker\" "+joker+" data-id=\""+id+"\" onClick=\"sendUpdate(6,"+id+")\">J</button><\/td><td class=\"scoreCell\"><span class=\"currentDistance\">"+boat.distance+"<\/span>/<span contenteditable onfocusout=\"setMaxScore($(this).text())\"  class=\"single-line mscore\">"+maxscore+"<\/span><div id=\"totalScore\"><strong>Total</strong>: "+boat.totalDistance+"</div><\/td><\/tr>";
+        return cellItem;
+  }
+  function sendUpdate(){
+  var args = arguments;
+  if(args[0]==1){
+	var obj = new Object();
+	obj.type = 1;
+	obj.id = args[1];
+	var jsonString= JSON.stringify(obj);
+	websocket.send(jsonString);
+   } else if(args[0]==2){
+	var obj = new Object();
+	obj.type = 2;
+	obj.id = args[1];
+	obj.boatName = args[2];
+	var jsonString= JSON.stringify(obj);
+	websocket.send(jsonString);
+  } else if(args[0]==3){
+	var obj = new Object();
+	obj.type = 3;
+	var jsonString= JSON.stringify(obj);
+	websocket.send(jsonString);
+   } else if(args[0]==4){ 
+	var obj = new Object();
+	obj.type = 4;
+	var jsonString= JSON.stringify(obj);
+	websocket.send(jsonString);
+	
+   } else if(args[0]==5){
+	var obj = new Object();
+	obj.type = 5;
+	obj.maxlength = args[1];
+	var jsonString= JSON.stringify(obj);
+	websocket.send(jsonString);
+   }  else if(args[0]==6){
+	var obj = new Object();
+	obj.type = 6;
+	obj.id = args[1];
+	var jsonString= JSON.stringify(obj);
+	websocket.send(jsonString);
+   } else if(args[0]==7){
+	var obj = new Object();
+	obj.type = 7;
+	obj.currentRound = args[1];
+	var jsonString= JSON.stringify(obj);
+	websocket.send(jsonString);
+   } else if(args[0]==8){
+	var obj = new Object();
+	obj.type = 8;
+	var jsonString= JSON.stringify(obj);
+	websocket.send(jsonString);
+   } else if(args[0] == 200){
+        var obj = new Object();
+        obj.type = 200;
+        var jsonString= JSON.stringify(obj);
+        websocket.send(jsonString);
+   } else {
+	var obj = new Object();
+	obj.type = 100;
+	var jsonString= JSON.stringify(obj);
+	websocket.send(jsonString);
+   }
+
+   }
+
+
+  function onError(evt)
+  {
+
+        showErrorState();
+  }
+
+  function doSend(message)
+  {
+   	websocket.send(jsonString);
+  }
+
+  function writeFromMessageBox(){
+        doSend(document.getElementById("message").value);
+  }
+
+  function setMaxScore(score){
+        sendUpdate(5,score);
+  }
+  
+  function showErrorState(){
+  	$("#errorState").show();
+  }
+  
+  function hideErrorState(){
+  	$("#errorState").hide();
+  }
+  
+  function showConfig(){
+  $("#configButtons").show();
+  }
+  function ping(){
+	sendUpdate(200);
+  }
+
+         $( document ).ready(init);
+
+
+  //]]>
+  </script>
+  <style type="text/css">
+/*<![CDATA[*/
+  p.c3 {margin-top: 10px; display: none}
+  div.c2 {padding-top: 10px}
+  div.c1 {display: none}
+  /*]]>*/
+  </style>
+</head>
+
+<body>
+  <div class="container">
+
+
+     <h1 contentEditable onfocusout="sendUpdate(7,$(this).text())" id="roundText">Round 1</h1>
+  </div>
+
+  <div class="container c1" id="winnermessage">
+    <div class="alert alert-success" role="alert" id="winnermessage">
+      <span id="winner"></span> win!
+    </div>
+  </div>
+
+  <div class="container alert alert-danger c1" id="errorState" role="alert">
+    <b>Error!</b> Something is not quite right.
+  </div>
+
+  <div class="container c2">
+    <p id="loadingText"><i>Loading...</i></p>
+
+    <table id="output" class="table"></table>
+  </div>
+
+  <div class="container c3" id="configButtons">
+	<button onclick="sendUpdate(3)" class="btn">Add Boat</button>
+	 <button class="btn" onclick=  "if(confirm('This will reset this round. Are you sure?')){sendUpdate(4)}">New Round</button>
+	  <button class="btn" onclick= "if(confirm('This will reset the ENTIRE QUIZ. Are you sure?')){sendUpdate(8)}">Completely Reset</button>
+	
+  <div class="stats"><strong>Number of rounds: </strong><span class="numberOfRounds"></span></div></div>
+</body>
+</html>
+
